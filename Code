@@ -1,0 +1,89 @@
+import pandas as pd
+import PyPDF2
+import docx2txt
+import re
+import zipfile
+import os
+
+def extract_info_from_pdf(pdf_path):
+    with open(pdf_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ''
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    
+    # Extract email IDs using regular expression
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    emails = re.findall(email_pattern, text)
+
+    # Extract contact numbers using regular expression
+    phone_pattern = r'\b(?:\(\+91\)-)?(?:\+91-)?\d{10}|\d{10}\b'
+    phones = re.findall(phone_pattern, text)
+
+    # Remove email and phone number patterns from text
+    text = re.sub(email_pattern, '', text)
+    text = re.sub(phone_pattern, '', text)
+
+    return {'Email IDs': emails, 'Contact Numbers': phones, 'Text': text}
+
+def extract_info_from_docx(docx_path):
+    text = docx2txt.process(docx_path)
+    
+    # Extract email IDs using regular expression
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+    emails = re.findall(email_pattern, text)
+
+    # Extract contact numbers using regular expression
+    phone_pattern = r'\b(?:\(\+91\)-)?(?:\+91-)?\d{10}|\d{10}\b'
+    phones = re.findall(phone_pattern, text)
+
+    # Remove email and phone number patterns from text
+    text = re.sub(email_pattern, '', text)
+    text = re.sub(phone_pattern, '', text)
+
+    return {'Email IDs': emails, 'Contact Numbers': phones, 'Text': text}
+
+# Path to the ZIP file
+zip_file_path = r'C:\Users\somal\Downloads\Sample2-20240406T093029Z-001.zip'
+
+# Directory to extract the ZIP contents
+extracted_dir = r'C:\Users\somal\Downloads\extracted_files'
+
+# Extract ZIP contents
+with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+    # Extract all contents to a temporary directory
+    zip_ref.extractall(extracted_dir)
+
+    # Find the 'Sample2' directory inside the extracted contents
+    sample2_dir = os.path.join(extracted_dir, 'Sample2')
+
+    # Get list of files in the 'Sample2' directory
+    sample2_files = [os.path.join(sample2_dir, file) for file in os.listdir(sample2_dir)]
+
+    # Extract information from each PDF and Word file inside the 'Sample2' directory
+    pdf_data = []
+    docx_data = []
+    for file_path in sample2_files:
+        if file_path.endswith('.pdf'):
+            pdf_data.append(extract_info_from_pdf(file_path))
+        elif file_path.endswith('.docx'):
+            docx_data.append(extract_info_from_docx(file_path))
+
+# Create DataFrames from the extracted data
+pdf_df = pd.DataFrame(pdf_data)
+docx_df = pd.DataFrame(docx_data)
+
+# Concatenate DataFrames
+df = pd.concat([pdf_df, docx_df], ignore_index=True)
+
+# Check if DataFrame contains data
+print("DataFrame contents:")
+print(df)
+
+# Write DataFrame to Excel file
+excel_path = r'C:\Users\somal\Downloads\output.xlsx'
+try:
+    df.to_excel(excel_path, index=False)
+    print("Excel file saved successfully.")
+except PermissionError as e:
+    print(f"Error: Permission denied. {e}")
